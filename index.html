@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Painon seuranta (Animoitu)</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root { --bg:#121212; --txt:#fff; --accent:#ffa500; --box:#1e1e1e; }
+
+  body {
+    background:var(--bg);
+    color:var(--txt);
+    font-family:Arial;
+    padding:12px;
+    max-width:480px;
+    margin:0 auto;
+  }
+
+  h1 {
+    text-align:center;
+    font-size:1.55rem;
+    margin-bottom:14px;
+  }
+
+  form, #goalBox, #chartBox {
+    background:var(--box);
+    padding:14px;
+    border-radius:8px;
+    margin-bottom:14px;
+  }
+
+  label {
+    font-size:0.9rem;
+    margin-bottom:4px;
+    display:block;
+  }
+
+  input, button {
+    width:100%;
+    padding:10px 12px;
+    margin-bottom:10px;
+    border-radius:6px;
+    border:1px solid #333;
+    background:#1e1e1e;
+    color:var(--txt);
+    font-size:1rem;
+  }
+
+  button.submit-btn { background:var(--accent); border:none; font-weight:bold; }
+  button.reset-btn { background:#ff4444; border:none; font-weight:bold; }
+  button.today-btn { background:#444; border:none; margin-top:4px; }
+
+  table {
+    width:100%;
+    background:var(--box);
+    border-collapse:collapse;
+    border-radius:8px;
+    overflow:hidden;
+  }
+
+  th,td { padding:8px; font-size:0.9rem; border-bottom:1px solid #333; }
+  thead { background:var(--accent); }
+
+  .positive { color:#4caf50; }
+  .negative { color:#f44336; }
+
+  /* Row highlight animation */
+  .highlight {
+    animation: flash 0.8s ease-in-out;
+  }
+
+  @keyframes flash {
+    0% { background-color:#2e2e2e; }
+    100% { background-color:var(--box); }
+  }
+</style>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#121212">
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js");
+  }
+</script>
+
+</head>
+
+<body>
+<h1>Painon seuranta</h1>
+
+<form id="painoForm">
+  <label>Päivämäärä</label>
+  <input type="date" id="date" required>
+  <button type="button" class="today-btn" id="todayBtn">Tänään</button>
+
+  <label>Paino (kg)</label>
+  <input type="number" step="0.1" id="weight" required>
+
+  <button class="submit-btn" type="submit">Lisää merkintä</button>
+  <button class="reset-btn" type="button" id="reset">Nollaa kaikki</button>
+</form>
+
+<div id="goalBox">
+  <label>Tavoitepaino (kg)</label>
+  <input type="number" step="0.1" id="goalInput">
+  <button type="button" class="submit-btn" id="saveGoal">Tallenna tavoite</button>
+</div>
+
+<table id="table">
+  <thead>
+    <tr>
+      <th>Pvm</th>
+      <th>Paino</th>
+      <th>Ed.</th>
+      <th>Alk.</th>
+      <th>%</th>
+      <th>Tavoite</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<div id="chartBox"><canvas id="chart"></canvas></div>
+
+<script>
+const KEY="painodata";
+const GOAL_KEY="painotavoite";
+const dateI=document.getElementById("date");
+const weightI=document.getElementById("weight");
+const tbody=document.querySelector("#table tbody");
+const resetBtn=document.getElementById("reset");
+const todayBtn=document.getElementById("todayBtn");
+const goalI=document.getElementById("goalInput");
+const saveGoal=document.getElementById("saveGoal");
+
+document.addEventListener("DOMContentLoaded",()=>{
+  dateI.value=new Date().toISOString().split("T")[0];
+  goalI.value=localStorage.getItem(GOAL_KEY)||"";
+  render();
+  initChart();
+});
+
+todayBtn.onclick=()=>{ dateI.value=new Date().toISOString().split("T")[0]; };
+
+document.getElementById("painoForm").addEventListener("submit",e=>{
+  e.preventDefault();
+  const d=dateI.value;
+  const w=parseFloat(weightI.value);
+  if(!d||isNaN(w))return;
+  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
+  const idx=arr.findIndex(x=>x.date===d);
+  if(idx>=0)arr[idx].weight=w; else arr.push({date:d,weight:w});
+  arr.sort((a,b)=>new Date(a.date)-new Date(b.date));
+  localStorage.setItem(KEY,JSON.stringify(arr));
+
+  weightI.value="";
+
+  render();
+  updateChart();
+  document.getElementById("table").scrollIntoView({ behavior:"smooth" });
+});
+
+resetBtn.onclick=()=>{ 
+  if(confirm("Nollataanko kaikki?")){
+    localStorage.removeItem(KEY); 
+    render(); 
+    updateChart(); 
+  }
+};
+
+saveGoal.onclick=()=>{
+  const g=parseFloat(goalI.value);
+  if(!isNaN(g)){
+    localStorage.setItem(GOAL_KEY,g); 
+    render(); 
+    updateChart();
+  }
+};
+
+function fmtShort(d){
+  const x=new Date(d);
+  return x.getDate().toString().padStart(2,"0")+"."+
+         (x.getMonth()+1).toString().padStart(2,"0")+"."+
+         x.getFullYear().toString().slice(2);
+}
+
+function render(){
+  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
+  const goal=parseFloat(localStorage.getItem(GOAL_KEY));
+  tbody.innerHTML="";
+  if(arr.length===0){
+    const r=document.createElement("tr");
+    const c=document.createElement("td");
+    c.colSpan=6;c.textContent="Ei merkintöjä";c.style.textAlign="center";
+    r.appendChild(c); tbody.appendChild(r); return;
+  }
+  const first=arr[0].weight;
+
+  arr.forEach((m,i)=>{
+    const r=document.createElement("tr");
+
+    const d=document.createElement("td"); 
+    d.textContent=fmtShort(m.date);
+    r.appendChild(d);
+
+    const w=document.createElement("td");
+    w.textContent=m.weight.toFixed(1);
+    r.appendChild(w);
+
+    const prev=document.createElement("td");
+    if(i===0)prev.textContent="-"; 
+    else{
+      const diff=m.weight-arr[i-1].weight;
+      prev.textContent=diff.toFixed(1);
+      prev.classList.add(diff>0?"positive":diff<0?"negative":"");
+    }
+    r.appendChild(prev);
+
+    const f=document.createElement("td");
+    if(i===0)f.textContent="-"; 
+    else{
+      const diff=m.weight-first;
+      f.textContent=diff.toFixed(1);
+      f.classList.add(diff>0?"positive":diff<0?"negative":"");
+    }
+    r.appendChild(f);
+
+    const pct=document.createElement("td");
+    if(i===0)pct.textContent="-"; 
+    else{
+      const p=((m.weight-first)/first)*100;
+      pct.textContent=p.toFixed(1)+"%";
+      pct.classList.add(p>0?"positive":p<0?"negative":"");
+    }
+    r.appendChild(pct);
+
+    const goalC=document.createElement("td");
+    if(isNaN(goal)) goalC.textContent="-";
+    else{
+      const diff=m.weight-goal;
+      goalC.textContent=diff.toFixed(1);
+      goalC.classList.add(diff>0?"positive":diff<0?"negative":"");
+    }
+    r.appendChild(goalC);
+
+    r.classList.add("highlight");
+
+    tbody.appendChild(r);
+  });
+}
+
+let chartObj;
+function initChart(){
+  const ctx=document.getElementById("chart").getContext("2d");
+  chartObj=new Chart(ctx,{
+    type:"line",
+    data:{labels:[],datasets:[
+      {
+        label:"Paino (kg)",
+        data:[],
+        borderColor:"#ffa500",
+        backgroundColor:"rgba(255,165,0,0.2)",
+        fill:true,
+        tension:0.3
+      },
+      {
+        label:"Tavoite",
+        data:[],
+        borderColor:"#ffffff88",
+        borderDash:[5,5],
+        pointRadius:0
+      }
+    ]},
+    options:{
+      animation:{
+        duration:800,
+        easing:"easeOutQuart"
+      },
+      responsive:true,
+      scales:{
+        x:{ticks:{color:"#fff"},grid:{color:"#333"}},
+        y:{ticks:{color:"#fff"},grid:{color:"#333"}}
+      },
+      plugins:{legend:{labels:{color:"#fff"}}}
+    }
+  });
+  updateChart();
+}
+
+function updateChart(){
+  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
+  const goal=parseFloat(localStorage.getItem(GOAL_KEY));
+  chartObj.data.labels=arr.map(x=>fmtShort(x.date));
+  chartObj.data.datasets[0].data=arr.map(x=>x.weight);
+  chartObj.data.datasets[1].data=isNaN(goal)?arr.map(()=>null):arr.map(()=>goal);
+  chartObj.update();
+}
+</script>
+
+</body>
+</html>
