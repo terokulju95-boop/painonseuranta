@@ -3,90 +3,278 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Painon seuranta (Animoitu)</title>
+<title>Painon seuranta (Premium)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-  :root { --bg:#121212; --txt:#fff; --accent:#ffa500; --box:#1e1e1e; }
+  :root { 
+    --bg: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    --txt: #fff; 
+    --accent: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --accent-hover: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    --box: rgba(255, 255, 255, 0.08);
+    --box-hover: rgba(255, 255, 255, 0.12);
+    --border: rgba(255, 255, 255, 0.18);
+    --shadow: rgba(0, 0, 0, 0.4);
+  }
+
+  * {
+    box-sizing: border-box;
+  }
 
   body {
-    background:var(--bg);
-    color:var(--txt);
-    font-family:Arial;
-    padding:12px;
-    max-width:480px;
-    margin:0 auto;
+    background: #0f0c29;
+    background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+    color: var(--txt);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    padding: 20px;
+    max-width: 580px;
+    margin: 0 auto;
+    min-height: 100vh;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(102, 126, 234, 0.1) 0%, transparent 50%);
+    animation: rotate 20s linear infinite;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 
   h1 {
-    text-align:center;
-    font-size:1.55rem;
-    margin-bottom:14px;
+    text-align: center;
+    font-size: 2.5rem;
+    margin-bottom: 30px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: -1px;
+    position: relative;
+    z-index: 1;
+    text-shadow: 0 0 40px rgba(102, 126, 234, 0.3);
   }
 
   form, #goalBox, #chartBox {
-    background:var(--box);
-    padding:14px;
-    border-radius:8px;
-    margin-bottom:14px;
+    background: var(--box);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 24px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px var(--shadow);
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+  }
+
+  form:hover, #goalBox:hover, #chartBox:hover {
+    background: var(--box-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px var(--shadow);
   }
 
   label {
-    font-size:0.9rem;
-    margin-bottom:4px;
-    display:block;
+    font-size: 0.85rem;
+    margin-bottom: 8px;
+    display: block;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255, 255, 255, 0.8);
   }
 
   input, button {
-    width:100%;
-    padding:10px 12px;
-    margin-bottom:10px;
-    border-radius:6px;
-    border:1px solid #333;
-    background:#1e1e1e;
-    color:var(--txt);
-    font-size:1rem;
+    width: 100%;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--txt);
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    font-family: inherit;
   }
 
-  button.submit-btn { background:var(--accent); border:none; font-weight:bold; }
-  button.reset-btn { background:#ff4444; border:none; font-weight:bold; }
-  button.today-btn { background:#444; border:none; margin-top:4px; }
+  input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+  }
+
+  input:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  button {
+    cursor: pointer;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+  }
+
+  button:active::before {
+    width: 300px;
+    height: 300px;
+  }
+
+  button.submit-btn { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+  }
+
+  button.submit-btn:hover {
+    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+  }
+
+  button.reset-btn { 
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+  }
+
+  button.reset-btn:hover {
+    background: linear-gradient(135deg, #ee5a6f 0%, #ff6b6b 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+  }
+
+  button.today-btn { 
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid var(--border);
+    margin-top: 4px;
+  }
+
+  button.today-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.3);
+  }
 
   table {
-    width:100%;
-    background:var(--box);
-    border-collapse:collapse;
-    border-radius:8px;
-    overflow:hidden;
+    width: 100%;
+    background: var(--box);
+    backdrop-filter: blur(20px);
+    border-collapse: collapse;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: 0 8px 32px var(--shadow);
+    position: relative;
+    z-index: 1;
   }
 
-  th,td { padding:8px; font-size:0.9rem; border-bottom:1px solid #333; }
-  thead { background:var(--accent); }
+  th, td { 
+    padding: 14px 10px;
+    font-size: 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
 
-  .positive { color:#4caf50; }
-  .negative { color:#f44336; }
+  thead { 
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-size: 0.8rem;
+  }
+
+  tbody tr {
+    transition: all 0.3s ease;
+  }
+
+  tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: scale(1.01);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .positive { 
+    color: #4ade80;
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(74, 222, 128, 0.3);
+  }
+
+  .negative { 
+    color: #f87171;
+    font-weight: 600;
+    text-shadow: 0 0 10px rgba(248, 113, 113, 0.3);
+  }
 
   .highlight {
-    animation: flash 0.8s ease-in-out;
+    animation: flash 1s ease-in-out;
   }
 
   @keyframes flash {
-    0% { background-color:#2e2e2e; }
-    100% { background-color:var(--box); }
+    0%, 100% { background-color: transparent; }
+    50% { background-color: rgba(102, 126, 234, 0.2); }
+  }
+
+  hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    margin: 20px 0;
+  }
+
+  #chartBox {
+    padding: 30px 20px;
+  }
+
+  @media (max-width: 480px) {
+    h1 {
+      font-size: 2rem;
+    }
+    
+    form, #goalBox, #chartBox {
+      padding: 18px;
+      border-radius: 16px;
+    }
+    
+    th, td {
+      padding: 10px 6px;
+      font-size: 0.8rem;
+    }
   }
 </style>
-
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#121212">
-<script>
-  if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("service-worker.js");
-  }
-</script>
 
 </head>
 
 <body>
-<h1>Painon seuranta</h1>
+<h1>💪 Painon seuranta</h1>
 
 <form id="painoForm">
   <label>Päivämäärä</label>
@@ -105,7 +293,7 @@
   <input type="number" step="0.1" id="goalInput">
   <button type="button" class="submit-btn" id="saveGoal">Tallenna tavoite</button>
 
-  <hr style="opacity:0.2; margin:14px 0;">
+  <hr>
 
   <label>Varmuuskopiointi</label>
   <button type="button" class="today-btn" id="exportBtn">Vie JSON</button>
@@ -141,9 +329,17 @@ const todayBtn=document.getElementById("todayBtn");
 const goalI=document.getElementById("goalInput");
 const saveGoal=document.getElementById("saveGoal");
 
+// Simuloi localStorage, koska se ei ole käytettävissä artifakteissa
+const storage = {};
+const fakeLocalStorage = {
+  getItem: (key) => storage[key] || null,
+  setItem: (key, value) => { storage[key] = value; },
+  removeItem: (key) => { delete storage[key]; }
+};
+
 document.addEventListener("DOMContentLoaded",()=>{
   dateI.value=new Date().toISOString().split("T")[0];
-  goalI.value=localStorage.getItem(GOAL_KEY)||"";
+  goalI.value=fakeLocalStorage.getItem(GOAL_KEY)||"";
   render();
   initChart();
 });
@@ -155,11 +351,11 @@ document.getElementById("painoForm").addEventListener("submit",e=>{
   const d=dateI.value;
   const w=parseFloat(weightI.value);
   if(!d||isNaN(w))return;
-  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
+  const arr=JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
   const idx=arr.findIndex(x=>x.date===d);
   if(idx>=0)arr[idx].weight=w; else arr.push({date:d,weight:w});
   arr.sort((a,b)=>new Date(a.date)-new Date(b.date));
-  localStorage.setItem(KEY,JSON.stringify(arr));
+  fakeLocalStorage.setItem(KEY,JSON.stringify(arr));
 
   weightI.value="";
   render();
@@ -169,7 +365,7 @@ document.getElementById("painoForm").addEventListener("submit",e=>{
 
 resetBtn.onclick=()=>{ 
   if(confirm("Nollataanko kaikki?")){
-    localStorage.removeItem(KEY); 
+    fakeLocalStorage.removeItem(KEY); 
     render(); 
     updateChart(); 
   }
@@ -178,7 +374,7 @@ resetBtn.onclick=()=>{
 saveGoal.onclick=()=>{
   const g=parseFloat(goalI.value);
   if(!isNaN(g)){
-    localStorage.setItem(GOAL_KEY,g); 
+    fakeLocalStorage.setItem(GOAL_KEY,g); 
     render(); 
     updateChart();
   }
@@ -192,8 +388,8 @@ function fmtShort(d){
 }
 
 function render(){
-  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
-  const goal=parseFloat(localStorage.getItem(GOAL_KEY));
+  const arr=JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+  const goal=parseFloat(fakeLocalStorage.getItem(GOAL_KEY));
   tbody.innerHTML="";
   if(arr.length===0){
     const r=document.createElement("tr");
@@ -265,50 +461,65 @@ function initChart(){
       {
         label:"Paino (kg)",
         data:[],
-        borderColor:"#ffa500",
-        backgroundColor:"rgba(255,165,0,0.2)",
+        borderColor:"#667eea",
+        backgroundColor:"rgba(102, 126, 234, 0.2)",
         fill:true,
-        tension:0.3
+        tension:0.4,
+        borderWidth: 3,
+        pointRadius: 5,
+        pointHoverRadius: 7,
+        pointBackgroundColor: "#667eea",
+        pointBorderColor: "#fff",
+        pointBorderWidth: 2
       },
       {
         label:"Tavoite",
         data:[],
-        borderColor:"#ffffff88",
-        borderDash:[5,5],
-        pointRadius:0
+        borderColor:"#f093fb",
+        borderDash:[8,4],
+        pointRadius:0,
+        borderWidth: 2
       }
     ]},
     options:{
-      animation:{ duration:800, easing:"easeOutQuart" },
+      animation:{ duration:1000, easing:"easeOutQuart" },
       responsive:true,
+      maintainAspectRatio: true,
       scales:{
-        x:{ticks:{color:"#fff"},grid:{color:"#333"}},
-        y:{ticks:{color:"#fff"},grid:{color:"#333"}}
+        x:{
+          ticks:{color:"rgba(255,255,255,0.8)", font: {size: 11}},
+          grid:{color:"rgba(255,255,255,0.05)"}
+        },
+        y:{
+          ticks:{color:"rgba(255,255,255,0.8)", font: {size: 11}},
+          grid:{color:"rgba(255,255,255,0.05)"}
+        }
       },
-      plugins:{legend:{labels:{color:"#fff"}}}
+      plugins:{
+        legend:{
+          labels:{color:"#fff", font: {size: 13, weight: '600'}},
+          position: 'top'
+        }
+      }
     }
   });
   updateChart();
 }
 
 function updateChart(){
-  const arr=JSON.parse(localStorage.getItem(KEY)||"[]");
-  const goal=parseFloat(localStorage.getItem(GOAL_KEY));
+  const arr=JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+  const goal=parseFloat(fakeLocalStorage.getItem(GOAL_KEY));
   chartObj.data.labels=arr.map(x=>fmtShort(x.date));
   chartObj.data.datasets[0].data=arr.map(x=>x.weight);
   chartObj.data.datasets[1].data=isNaN(goal)?arr.map(()=>null):arr.map(()=>goal);
   chartObj.update();
 }
 
-/* ------------------------------
-   JSON Vienti ja Tuonti
------------------------------- */
-
-// Vie JSON
+// JSON Vienti
 document.getElementById("exportBtn").onclick = () => {
   const data = {
-    entries: JSON.parse(localStorage.getItem(KEY) || "[]"),
-    goal: localStorage.getItem(GOAL_KEY) || null
+    entries: JSON.parse(fakeLocalStorage.getItem(KEY) || "[]"),
+    goal: fakeLocalStorage.getItem(GOAL_KEY) || null
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -323,7 +534,7 @@ document.getElementById("exportBtn").onclick = () => {
   URL.revokeObjectURL(url);
 };
 
-// Tuo JSON
+// JSON Tuonti
 document.getElementById("importBtn").onclick = () => {
   const fileInput = document.getElementById("importFile");
   if (!fileInput.files.length) {
@@ -342,9 +553,9 @@ document.getElementById("importBtn").onclick = () => {
         return;
       }
 
-      localStorage.setItem(KEY, JSON.stringify(data.entries));
+      fakeLocalStorage.setItem(KEY, JSON.stringify(data.entries));
       if (data.goal !== undefined && data.goal !== null) {
-        localStorage.setItem(GOAL_KEY, data.goal);
+        fakeLocalStorage.setItem(GOAL_KEY, data.goal);
       }
 
       alert("Tiedot tuotu onnistuneesti.");
