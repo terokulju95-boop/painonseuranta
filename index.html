@@ -383,6 +383,65 @@ fbLoad();
   .btn-edit-row:hover{background:rgba(102,126,234,0.4);}
   .btn-del-row{background:rgba(255,77,77,0.15);border:1px solid rgba(255,77,77,0.3);color:#fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;transition:all 0.2s;}
   .btn-del-row:hover{background:rgba(255,77,77,0.3);}
+
+  /* Varmuuskopiointi */
+  #backupSection {
+    position: relative;
+    z-index: 1;
+    margin-top: 20px;
+    margin-bottom: 20px;
+  }
+  #backupToggleBtn {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--txt);
+    font-size: 0.9rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    margin-bottom: 0;
+    transition: all 0.3s ease;
+  }
+  #backupToggleBtn:hover { background: rgba(255,255,255,0.1); }
+  #backupContent {
+    display: none;
+    background: var(--box);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    padding: 16px;
+    animation: fadeInM 0.2s ease;
+  }
+  #backupContent.open { display: block; }
+  #backupToggleBtn.open {
+    border-radius: 12px 12px 0 0;
+    background: rgba(255,255,255,0.1);
+  }
+
+  /* Taulukko ei ylitä ruutua */
+  .table-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    position: relative;
+    z-index: 1;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  table {
+    min-width: 360px;
+  }
+  th, td {
+    padding: 10px 6px;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
 </style>
 
 </head>
@@ -438,16 +497,19 @@ fbLoad();
   <input type="number" step="0.1" id="goalInput">
   <button type="button" class="submit-btn" id="saveGoal">Tallenna tavoite</button>
 
-  <hr>
-
-  <label>Varmuuskopiointi</label>
-  <button type="button" class="today-btn" id="exportBtn">Vie JSON</button>
-
-  <input type="file" id="importFile" accept="application/json">
-  <button type="button" class="today-btn" id="importBtn">Tuo JSON</button>
 </div>
 
-<table id="table">
+<!-- Varmuuskopiointi alhaalla piilotettu -->
+<div id="backupSection">
+  <button type="button" id="backupToggleBtn">🗄️ Varmuuskopiointi</button>
+  <div id="backupContent">
+    <button type="button" class="today-btn" id="exportBtn">Vie JSON</button>
+    <input type="file" id="importFile" accept="application/json">
+    <button type="button" class="today-btn" id="importBtn">Tuo JSON</button>
+  </div>
+</div>
+
+<div class="table-wrapper"><table id="table">
   <thead>
     <tr>
       <th>Pvm</th>
@@ -460,7 +522,7 @@ fbLoad();
     </tr>
   </thead>
   <tbody></tbody>
-</table>
+</table></div>
 
 <div id="chartBox"><canvas id="chart"></canvas></div>
 
@@ -677,6 +739,14 @@ window.updateChart = function updateChart(){
   chartObj.data.datasets[1].data=isNaN(goal)?arr.map(()=>null):arr.map(()=>goal);
   chartObj.update();
 }
+
+// Varmuuskopiointi toggle
+document.getElementById('backupToggleBtn').onclick = function(){
+  const content = document.getElementById('backupContent');
+  const btn = document.getElementById('backupToggleBtn');
+  content.classList.toggle('open');
+  btn.classList.toggle('open');
+};
 
 // JSON Vienti
 document.getElementById("exportBtn").onclick = () => {
