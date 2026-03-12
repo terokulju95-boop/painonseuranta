@@ -5,6 +5,85 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Painon seuranta (Premium)</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script type="module" id="firebase-init">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDswdEF9J0gsHJH6Zo_8BGZrf8DVG3FwYc",
+  authDomain: "hakemuspaivakirja.firebaseapp.com",
+  projectId: "hakemuspaivakirja",
+  storageBucket: "hakemuspaivakirja.firebasestorage.app",
+  messagingSenderId: "836133210317",
+  appId: "1:836133210317:web:d85131ae272ecf1938c184"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const DATA_DOC = doc(db, "paino", "data");
+let isSaving = false;
+
+function showSaveStatus(msg, color){
+  let el = document.getElementById('saveStatus');
+  if(!el){ el = document.createElement('div'); el.id='saveStatus'; document.body.prepend(el);
+    el.style.cssText='position:fixed;top:0;left:0;right:0;padding:8px;text-align:center;font-size:13px;font-weight:700;z-index:9999;transition:opacity 0.5s;opacity:0;'; }
+  el.textContent=msg; el.style.background=color||'#667eea'; el.style.color='white'; el.style.opacity='1';
+  setTimeout(()=>el.style.opacity='0',2500);
+}
+
+// Yhdistetty tallennus
+window.fbSave = async function(entries, goal){
+  if(isSaving) return;
+  isSaving = true;
+  showSaveStatus('💾 Tallennetaan...','#f97316');
+  try {
+    localStorage.setItem('painodata', JSON.stringify(entries));
+    if(goal !== null) localStorage.setItem('painotavoite', goal);
+    await setDoc(DATA_DOC, { entries: JSON.stringify(entries), goal: goal !== null ? String(goal) : '' });
+    showSaveStatus('✅ Tallennettu','#22c55e');
+  } catch(e){
+    showSaveStatus('❌ Tallennus epäonnistui','#dc2626');
+  }
+  isSaving = false;
+};
+
+// Lataus
+async function fbLoad(){
+  try {
+    const snap = await getDoc(DATA_DOC);
+    if(snap.exists()){
+      const d = snap.data();
+      localStorage.setItem('painodata', d.entries || '[]');
+      if(d.goal) localStorage.setItem('painotavoite', d.goal);
+    } else {
+      // Ei dataa Firebasessa – jätä localStorage data
+      const existingData = localStorage.getItem('painodata');
+      if(existingData && existingData !== '[]'){
+        // Siirrä vanha data Firebaseen
+        const goal = localStorage.getItem('painotavoite');
+        await window.fbSave(JSON.parse(existingData), goal);
+      }
+    }
+  } catch(e){
+    showSaveStatus('⚠️ Yhteysvirhe – paikallinen data','#f59e0b');
+  }
+  // Triggeraa render kun data on ladattu
+  if(window.renderLoaded) window.renderLoaded();
+}
+
+// Reaaliaikainen kuuntelu
+onSnapshot(DATA_DOC, snap => {
+  if(!snap.exists() || isSaving) return;
+  try {
+    const d = snap.data();
+    localStorage.setItem('painodata', d.entries || '[]');
+    if(d.goal) localStorage.setItem('painotavoite', d.goal);
+    if(window.render) { window.render(); window.updateChart(); }
+  } catch(e){}
+});
+
+fbLoad();
+</script>
 <style>
   :root { 
     --bg: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
@@ -269,6 +348,41 @@
       font-size: 0.8rem;
     }
   }
+
+  /* PIN */
+  #pinScreen{position:fixed;inset:0;background:linear-gradient(135deg,#0f0c29 0%,#302b63 50%,#24243e 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:16px;}
+  .pin-title{font-size:26px;font-weight:800;color:white;}
+  .pin-sub{font-size:14px;color:rgba(255,255,255,0.6);}
+  .pin-dots{display:flex;gap:14px;margin:8px 0;}
+  .pin-dot{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,0.5);background:transparent;transition:background 0.15s;}
+  .pin-dot.filled{background:white;}
+  .pin-pad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;}
+  .pin-key{height:76px;width:76px;border-radius:16px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:white;font-size:26px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;}
+  .pin-key:active{background:rgba(255,255,255,0.3);}
+  .pin-error{color:#f9a8b8;font-weight:700;font-size:14px;min-height:20px;}
+
+  /* MUOKKAUS MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);z-index:10000;display:none;align-items:flex-end;justify-content:center;}
+  .modal-overlay.open{display:flex;animation:fadeInM 0.2s ease;}
+  @keyframes fadeInM{from{opacity:0}to{opacity:1}}
+  .modal-sheet{background:#1a1735;border-radius:20px 20px 0 0;padding:28px 24px 40px;width:100%;max-width:580px;border:1px solid rgba(255,255,255,0.1);animation:slideUpM 0.3s cubic-bezier(0.4,0,0.2,1);}
+  @keyframes slideUpM{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal-handle{width:40px;height:4px;border-radius:2px;background:rgba(255,255,255,0.2);margin:0 auto 20px;}
+  .modal-title{font-size:18px;font-weight:700;color:white;margin-bottom:20px;}
+  .modal-field{margin-bottom:14px;}
+  .modal-field label{display:block;font-size:11px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:rgba(255,255,255,0.5);margin-bottom:6px;}
+  .modal-field input{width:100%;padding:12px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:white;font-size:16px;outline:none;}
+  .modal-field input:focus{border-color:#667eea;}
+  .modal-actions{display:flex;gap:10px;margin-top:20px;}
+  .modal-btn-save{flex:1;padding:13px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;}
+  .modal-btn-cancel{flex:1;padding:13px;background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);border:1px solid rgba(255,255,255,0.15);border-radius:10px;font-size:15px;cursor:pointer;}
+
+  /* Toimintonapit taulukossa */
+  .row-actions{display:flex;gap:4px;justify-content:flex-end;}
+  .btn-edit-row{background:rgba(102,126,234,0.2);border:1px solid rgba(102,126,234,0.4);color:#a5b4fc;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;transition:all 0.2s;}
+  .btn-edit-row:hover{background:rgba(102,126,234,0.4);}
+  .btn-del-row{background:rgba(255,77,77,0.15);border:1px solid rgba(255,77,77,0.3);color:#fca5a5;border-radius:6px;padding:4px 8px;font-size:12px;cursor:pointer;transition:all 0.2s;}
+  .btn-del-row:hover{background:rgba(255,77,77,0.3);}
 </style>
 
 </head>
@@ -287,6 +401,37 @@
   <button class="submit-btn" type="submit">Lisää merkintä</button>
   <button class="reset-btn" type="button" id="reset">Nollaa kaikki</button>
 </form>
+
+<!-- PIN -->
+<div id="pinScreen">
+  <div class="pin-title">⚖️ Painon seuranta</div>
+  <div class="pin-sub">Syötä PIN-koodi</div>
+  <div class="pin-dots" id="pinDots">
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+    <div class="pin-dot"></div><div class="pin-dot"></div>
+  </div>
+  <div class="pin-pad">
+    <button class="pin-key" data-v="1">1</button><button class="pin-key" data-v="2">2</button><button class="pin-key" data-v="3">3</button>
+    <button class="pin-key" data-v="4">4</button><button class="pin-key" data-v="5">5</button><button class="pin-key" data-v="6">6</button>
+    <button class="pin-key" data-v="7">7</button><button class="pin-key" data-v="8">8</button><button class="pin-key" data-v="9">9</button>
+    <button class="pin-key" data-v="back" style="font-size:18px">←</button><button class="pin-key" data-v="0">0</button><button class="pin-key" data-v="clear" style="font-size:16px">✕</button>
+  </div>
+  <div class="pin-error" id="pinError"></div>
+</div>
+
+<!-- Muokkausmodal -->
+<div class="modal-overlay" id="editModal" onclick="closeEditIfOutside(event)">
+  <div class="modal-sheet">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✏️ Muokkaa kirjausta</div>
+    <div class="modal-field"><label>Päivämäärä</label><input type="date" id="editDate"></div>
+    <div class="modal-field"><label>Paino (kg)</label><input type="number" step="0.1" id="editWeight" placeholder="esim. 75.5"></div>
+    <div class="modal-actions">
+      <button class="modal-btn-cancel" onclick="closeEdit()">Peruuta</button>
+      <button class="modal-btn-save" onclick="saveEdit()">Tallenna</button>
+    </div>
+  </div>
+</div>
 
 <div id="goalBox">
   <label>Tavoitepaino (kg)</label>
@@ -311,6 +456,7 @@
       <th>Alk.</th>
       <th>%</th>
       <th>Tavoite</th>
+      <th></th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -329,12 +475,17 @@ const todayBtn=document.getElementById("todayBtn");
 const goalI=document.getElementById("goalInput");
 const saveGoal=document.getElementById("saveGoal");
 
-// Simuloi localStorage, koska se ei ole käytettävissä artifakteissa
-const storage = {};
+// Käytetään oikeaa localStorage:a
 const fakeLocalStorage = {
-  getItem: (key) => storage[key] || null,
-  setItem: (key, value) => { storage[key] = value; },
-  removeItem: (key) => { delete storage[key]; }
+  getItem: (key) => localStorage.getItem(key),
+  setItem: (key, value) => { localStorage.setItem(key, value); },
+  removeItem: (key) => { localStorage.removeItem(key); }
+};
+
+// Renderöi kun Firebase on ladannut datan
+window.renderLoaded = function(){
+  render();
+  updateChart();
 };
 
 document.addEventListener("DOMContentLoaded",()=>{
@@ -356,6 +507,7 @@ document.getElementById("painoForm").addEventListener("submit",e=>{
   if(idx>=0)arr[idx].weight=w; else arr.push({date:d,weight:w});
   arr.sort((a,b)=>new Date(a.date)-new Date(b.date));
   fakeLocalStorage.setItem(KEY,JSON.stringify(arr));
+  if(window.fbSave) window.fbSave(arr, fakeLocalStorage.getItem(GOAL_KEY));
 
   weightI.value="";
   render();
@@ -365,7 +517,8 @@ document.getElementById("painoForm").addEventListener("submit",e=>{
 
 resetBtn.onclick=()=>{ 
   if(confirm("Nollataanko kaikki?")){
-    fakeLocalStorage.removeItem(KEY); 
+    fakeLocalStorage.removeItem(KEY);
+    if(window.fbSave) window.fbSave([], fakeLocalStorage.getItem(GOAL_KEY));
     render(); 
     updateChart(); 
   }
@@ -374,7 +527,9 @@ resetBtn.onclick=()=>{
 saveGoal.onclick=()=>{
   const g=parseFloat(goalI.value);
   if(!isNaN(g)){
-    fakeLocalStorage.setItem(GOAL_KEY,g); 
+    fakeLocalStorage.setItem(GOAL_KEY,g);
+    const arr2 = JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+    if(window.fbSave) window.fbSave(arr2, g);
     render(); 
     updateChart();
   }
@@ -387,7 +542,7 @@ function fmtShort(d){
          x.getFullYear().toString().slice(2);
 }
 
-function render(){
+window.render = function render(){
   const arr=JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
   const goal=parseFloat(fakeLocalStorage.getItem(GOAL_KEY));
   tbody.innerHTML="";
@@ -448,6 +603,14 @@ function render(){
 
     r.classList.add("highlight");
 
+    // Toimintonapit
+    const actTd = document.createElement("td");
+    actTd.innerHTML = `<div class="row-actions">
+      <button class="btn-edit-row" onclick="openEditRow('${m.date}')">✏️</button>
+      <button class="btn-del-row" onclick="deleteRow('${m.date}')">✕</button>
+    </div>`;
+    r.appendChild(actTd);
+
     tbody.appendChild(r);
   });
 }
@@ -506,7 +669,7 @@ function initChart(){
   updateChart();
 }
 
-function updateChart(){
+window.updateChart = function updateChart(){
   const arr=JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
   const goal=parseFloat(fakeLocalStorage.getItem(GOAL_KEY));
   chartObj.data.labels=arr.map(x=>fmtShort(x.date));
@@ -558,6 +721,7 @@ document.getElementById("importBtn").onclick = () => {
         fakeLocalStorage.setItem(GOAL_KEY, data.goal);
       }
 
+      if(window.fbSave) window.fbSave(data.entries, data.goal || null);
       alert("Tiedot tuotu onnistuneesti.");
       render();
       updateChart();
@@ -569,6 +733,112 @@ document.getElementById("importBtn").onclick = () => {
 
   reader.readAsText(file);
 };
+
+// ============================
+// MUOKKAUS & POISTO
+// ============================
+let editingDate = null;
+
+window.openEditRow = function(date){
+  editingDate = date;
+  const arr = JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+  const entry = arr.find(x => x.date === date);
+  if(!entry) return;
+  document.getElementById('editDate').value = entry.date;
+  document.getElementById('editWeight').value = entry.weight;
+  document.getElementById('editModal').classList.add('open');
+};
+
+window.closeEdit = function(){
+  document.getElementById('editModal').classList.remove('open');
+  editingDate = null;
+};
+
+window.closeEditIfOutside = function(e){
+  if(e.target === document.getElementById('editModal')) closeEdit();
+};
+
+window.saveEdit = function(){
+  const newDate = document.getElementById('editDate').value;
+  const newWeight = parseFloat(document.getElementById('editWeight').value);
+  if(!newDate || isNaN(newWeight)){ alert('Tarkista päivämäärä ja paino!'); return; }
+  let arr = JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+  const idx = arr.findIndex(x => x.date === editingDate);
+  if(idx >= 0){ arr[idx] = { date: newDate, weight: newWeight }; }
+  arr.sort((a,b) => new Date(a.date)-new Date(b.date));
+  fakeLocalStorage.setItem(KEY, JSON.stringify(arr));
+  if(window.fbSave) window.fbSave(arr, fakeLocalStorage.getItem(GOAL_KEY));
+  closeEdit();
+  render(); updateChart();
+};
+
+window.deleteRow = function(date){
+  if(!confirm('Poistetaanko tämä kirjaus?')) return;
+  let arr = JSON.parse(fakeLocalStorage.getItem(KEY)||"[]");
+  arr = arr.filter(x => x.date !== date);
+  fakeLocalStorage.setItem(KEY, JSON.stringify(arr));
+  if(window.fbSave) window.fbSave(arr, fakeLocalStorage.getItem(GOAL_KEY));
+  render(); updateChart();
+};
+
+// ============================
+// PIN (Firebasesta)
+// ============================
+const PIN_SESSION = 'paino_pin_ok';
+let pinBuffer = '';
+
+function renderPinDots(){
+  document.querySelectorAll('.pin-dot').forEach((d,i) => d.classList.toggle('filled', i < pinBuffer.length));
+}
+
+async function checkPin(){
+  const err = document.getElementById('pinError');
+  try {
+    const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js");
+    const { initializeApp, getApps } = await import("https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js");
+    const apps = getApps();
+    const fbApp2 = apps.length ? apps[0] : initializeApp({
+      apiKey:"AIzaSyDswdEF9J0gsHJH6Zo_8BGZrf8DVG3FwYc",
+      authDomain:"hakemuspaivakirja.firebaseapp.com",
+      projectId:"hakemuspaivakirja"
+    });
+    const db2 = getFirestore(fbApp2);
+    const snap = await getDoc(doc(db2, 'paino', 'pin'));
+    if(!snap.exists()){ unlock(); return; }
+    if(pinBuffer === snap.data().code){
+      sessionStorage.setItem(PIN_SESSION, '1');
+      unlock();
+    } else {
+      err.textContent = 'Väärä PIN-koodi';
+      pinBuffer = '';
+      setTimeout(() => renderPinDots(), 300);
+    }
+  } catch(e){
+    err.textContent = 'Yhteysvirhe, yritä uudelleen';
+    pinBuffer = ''; renderPinDots();
+  }
+}
+
+function unlock(){
+  document.getElementById('pinScreen').style.display = 'none';
+}
+
+function handlePinKey(v){
+  const err = document.getElementById('pinError');
+  if(v==='clear'){ pinBuffer=''; renderPinDots(); err.textContent=''; return; }
+  if(v==='back'){ pinBuffer=pinBuffer.slice(0,-1); renderPinDots(); err.textContent=''; return; }
+  if(pinBuffer.length >= 4) return;
+  pinBuffer += v; renderPinDots();
+  if(pinBuffer.length === 4) checkPin();
+}
+
+document.querySelectorAll('.pin-key').forEach(btn => {
+  btn.addEventListener('click', () => handlePinKey(btn.dataset.v));
+});
+
+if(sessionStorage.getItem(PIN_SESSION)){
+  unlock();
+}
 </script>
 
 </body>
